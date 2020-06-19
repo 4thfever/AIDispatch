@@ -30,18 +30,14 @@ class PowerFlow():
         self.Um, self.Ua, self.Jacob = None, None, None
         self.P, self.Q, self.Y = None, None, None
         self.num_node, self.num_line, self.num_tran, self.num_gene, self.num_load = 0, 0, 0, 0, 0
-        self.line, self.tran, self.gene, self.load = [None], [None], [None], [None]
-        self.loss = []
-        self.df_branch = pd.DataFrame(columns=['i', 'j', 'Pij', 'Qij', 'Pji', 'Qji', 'dP', 'dQ'])
-        self.df_node = pd.DataFrame(columns=['Um', 'Ua', 'PG', 'QG', 'PL', 'QL'])
-        self.df_iter = pd.Series(name='Error_iter', dtype=float)
+        self.line, self.tran, self.gene, self.load = [], [], [], []
 
     def read_data(self):
         """
         Read data from input.csv
         """
         df_grid = pd.read_csv('input.csv')
-        self.num_node = int(df_grid.loc[:,['node_i','node_j']].max().max())
+        self.num_node = int(df_grid.loc[:,['node_i','node_j']].max().max())+1
         list_device = ['line', 'tran', 'gene', 'load']
         list_handles_device = [self.line, self.tran, self.gene, self.load]
         list_attr = []
@@ -66,8 +62,8 @@ class PowerFlow():
         """
         Create admittance matrix
         """
-        self.Y = np.zeros((self.num_node+1, self.num_node+1), dtype = complex)
-        for lineNum in range(1, self.num_line+1):
+        self.Y = np.zeros((self.num_node, self.num_node), dtype = complex)
+        for lineNum in range(self.num_line):
             i = self.line[lineNum].i
             j = self.line[lineNum].j
             r = self.line[lineNum].a
@@ -81,7 +77,7 @@ class PowerFlow():
                 self.Y[j][i] = self.Y[i][j]
                 self.Y[i][i] += (comp + complex(0, c))
                 self.Y[j][j] += (comp + complex(0, c))
-        for tranNum in range(1, self.num_tran+1):
+        for tranNum in range(self.num_tran):
             i = self.tran[tranNum].i
             j = self.tran[tranNum].j
             r = self.tran[tranNum].a
@@ -93,13 +89,14 @@ class PowerFlow():
             self.Y[j][i] = self.Y[i][j]
             self.Y[j][j] += comp/c/c
 
+
     def Um_and_Ua(self):
         """
         Set the amplitude and phase angle of voltage
         """
-        self.Um = np.ones(self.num_node+1)
-        self.Ua = np.zeros(self.num_node+1)
-        for i in range(1, self.num_gene+1):
+        self.Um = np.ones(self.num_node)
+        self.Ua = np.zeros(self.num_node)
+        for i in range(self.num_gene):
             if self.gene[i].j <= 0:
                 self.Um[self.gene[i].i] = self.gene[i].c
 
@@ -109,12 +106,12 @@ class PowerFlow():
         """
         n2 = 2*self.num_node
         nu = n2 + 1
-        for i in range(1, self.num_node+1):
+        for i in range(self.num_node):
             vi = self.Um[i]
             di = self.Ua[i]
             dp = 0.0
             dq = 0.0
-            for j in range(1, self.num_node+1):
+            for j in range(self.num_node):
                 if j != i:                  # when i <> j, off-diagonal elements
                     g = self.Y[i][j].real        # G        
                     b = self.Y[i][j].imag        # B
@@ -147,23 +144,23 @@ class PowerFlow():
             self.Jacob[i+self.num_node][nu] = -vi*(dq-vi*b)
             self.P[i] = vi * (dp+vi*g)
             self.Q[i] = vi * (dq-vi*b)
-        for i in range(1, self.num_load+1):
+        for i in range(self.num_load):
             kk = self.load[i].i
             lp = self.load[i].a
             lq = self.load[i].b
             self.Jacob[kk][nu] += -lp
             self.Jacob[kk+self.num_node][nu] += -lq
-        for i in range(1, self.num_gene+1):
+        for i in range(self.num_gene):
             kk = self.gene[i].i
             gp = self.gene[i].a
             gq = self.gene[i].b
             self.Jacob[kk][nu] += gp
             self.Jacob[kk+self.num_node][nu] += gq
-        for k in range(1, self.num_gene+1):
+        for k in range(self.num_gene):
             ii = self.gene[k].i
             kk = self.gene[k].j
-            if kk == 0:         # Balance nodes
-                for j in range(1, n2+1):
+            if kk == -1:         # Balance nodes
+                for j in range(n2):
                     self.Jacob[ii][j] = 0.0
                     self.Jacob[self.num_node+ii][j] = 0.0
                     self.Jacob[j][ii] = 0.0
@@ -172,8 +169,8 @@ class PowerFlow():
                 self.Jacob[self.num_node+ii][self.num_node+ii] = 1.0
                 self.Jacob[ii][nu] = 0.0
                 self.Jacob[self.num_node+ii][nu] = 0.0
-            if kk < 0:          # PV nodes
-                for j in range(1, n2+1):
+            if kk < -1:          # PV nodes
+                for j in range(n2):
                     self.Jacob[self.num_node+ii][j] = 0.0
                     self.Jacob[j][self.num_node+ii] = 0.0
                 self.Jacob[self.num_node+ii][self.num_node+ii] = 1.0
@@ -183,17 +180,18 @@ class PowerFlow():
         """
         output the power flow of nodes
         """
-        print("\n\n\t\t* - * - * - Result of Power Flow Calculation * - * - * -")
+        print("\n\n\t\t* - * - * - Rasult of Power Flow Calculation * - * - * -")
         print("\n\t\t\t\t-------power flow of nodes-------")
+        print("\n\tno.i\t Um\t\tUa\t\tPG\t\t  QG\t PL\tQL\n")
         for i in range(1, self.num_node+1):
             b1,b2,c1,c2 = 0.0, 0.0, 0.0, 0.0
-            for j in range(1, self.num_gene+1):
+            for j in range(self.num_gene):
                 ii = self.gene[j].i
                 kk = self.gene[j].j
-                if i == ii and kk == 0:         # Balance nodes
+                if i == ii and kk == -1:         # Balance nodes
                     b1 = self.P[ii]
                     b2 = self.Q[ii]
-                    for k in range(1, self.num_load+1):
+                    for k in range(self.num_load):
                         ii = self.load[k].i
                         if i == ii:
                             c1 = self.load[k].a
@@ -201,32 +199,32 @@ class PowerFlow():
                             b1 += c1
                             b2 += c2
                     break
-                if i == ii and kk == -1:            # PV nodes
+                if i == ii and kk == -2:            # PV nodes
                     b1 = self.gene[j].a
                     b2 = self.Q[ii]
-                    for k in range(1, self.num_load+1):
+                    for k in range(self.num_load):
                         ii = self.load[k].i
                         if i == ii:
                             c1 = self.load[k].a
                             c2 = self.load[k].b
                             b2 += c2
                     break 
-            for j in range(1, self.num_load+1):
+            for j in range(self.num_load):
                 ii = self.load[j].i
                 if i == ii:
                     c1 = self.load[j].a
                     c2 = self.load[j].b
                     break
-            self.df_node.loc[i] = [self.Um[i], self.Ua[i]*180.0/pi, b1, b2, c1, c2]
-        print(self.df_node)
+            print(" %6d %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %(i, self.Um[i], self.Ua[i]*180.0/pi, b1, b2, c1, c2))
 
     def branch_flow(self):
         """
         output the power flow of branches
         """
         print("\n\n\t\t\t\t-------power flow of branches-------")
+        print("\n\n\ti\t j\t\tPij\t\t   Qij\t\t  Pji\t\t Qji\t\t dP\t\t   dQ\n\n")
         ph, qh = 0.0, 0.0
-        for row_num, p in enumerate(self.line):
+        for p in self.line:
             if p == None:
                 continue
             i = p.i
@@ -265,8 +263,8 @@ class PowerFlow():
                 qji = -vj*(b+x) + x*cd + r*sd
                 dqb = qij + qji
                 qh += dqb
-            self.df_branch.loc[row_num] = [i, j, pij, qij, pji, qji, dpb, dqb]
-        for row_num, p in enumerate(self.tran):
+            print("  %3d  %3d %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f\n" %(i, j, pij, qij, pji, qji, dpb, dqb))
+        for p in self.tran:
             if p == None:
                 continue
             i = p.i
@@ -298,12 +296,8 @@ class PowerFlow():
             qji = -vj*(xj+x) + x*cd + r*sd
             dqb = qij + qji
             qh += dqb
-            # 这里是shape[0]+1,因为有一个为None的元素在line里面
-            self.df_branch.loc[self.df_branch.shape[0]+1] = [i, j, pij, qij, pji, qji, dpb, dqb]
-        self.df_branch[['i','j']] = self.df_branch[['i','j']].astype(np.int32)
-        print(self.df_branch)
+            print("  %3d  %3d %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f" %(i, j, pij, qij, pji, qji, dpb, dqb))
         print("\n\n  The total loss of the system: - Active power:%8.5f\tReactive power:%8.5f" %(ph, qh))
-        self.loss = [ph, qh]
 
     def solv_Eqn(self):
         """
@@ -331,41 +325,39 @@ class PowerFlow():
             for j in range(i1, n2+1):
                 Jacob[i][nu] = Jacob[i][nu] - Jacob[i][j]*Jacob[j][nu]
 
-def main():
-    pf = PowerFlow()
-    pf.read_data()
-    pf.admt_matrix()
-    pf.Um_and_Ua()
+pf = PowerFlow()
+pf.read_data()
+pf.admt_matrix()
+pf.Um_and_Ua()
 
-    pf.Jacob = np.zeros((2*pf.num_node+1, 2*pf.num_node+2))
-    pf.P = np.zeros(pf.num_node+1)
-    pf.Q = np.zeros(pf.num_node+1)
+pf.Jacob = np.zeros((2*pf.num_node, 2*pf.num_node+1))
+pf.P = np.zeros(pf.num_node)
+pf.Q = np.zeros(pf.num_node)
 
-    iter_ = 0  
-    while True:
-        pf.form_Jacobian()
-        error = 0.0
-        for i in range(1, 2*pf.num_node+1):
-            errror_now = fabs(pf.Jacob[i][2*pf.num_node+1])
-            if errror_now > error:
-                error = errror_now
-        pf.df_iter.loc[iter_+1] = error
-        if error < pf.error_max:
-            print(pf.df_iter)
-            pf.node_flow()
-            pf.branch_flow()
-            break
-        if iter_ > pf.max_iter or error > pf.max_error:
-            print("\n\n\t\tThe power flow is Divergence.")
-            break
-        pf.solv_Eqn()
-        for i in range(1, pf.num_node+1):
-            a = pf.Jacob[i][2*pf.num_node+1]
-            pf.Ua[i] += -a
-            a = pf.Jacob[pf.num_node+i][2*pf.num_node+1]
-            pf.Um[i] *= 1-a
-        iter_ += 1
-    return pf
-
-pf = main()
-# print(pf.df_branch, pf.df_node, pf.df_iter, pf.loss)
+iter_ = 0  
+x_axis = []             # for drawing graph
+y_axis = []             # for drawing graph
+while True:
+    pf.form_Jacobian()
+    error = 0.0
+    for i in range(2*pf.num_node):
+        if fabs(pf.Jacob[i][2*pf.num_node]) > error:
+            error = fabs(pf.Jacob[i][2*pf.num_node])
+    print("Times of iteration: %2d\t\tThe maximum power error: %11.6f" %(iter_+1, error))
+    #print("%d %.6f\n" %(iter+1, error))
+    x_axis.append(iter_+1)           # for drawing graph   
+    y_axis.append(error)            # for drawing graph
+    if error < pf.error_max:
+        pf.node_flow()
+        pf.branch_flow()
+        break
+    if iter_ > pf.max_iter or error > pf.max_error:
+        print("\n\n\t\tThe power flow is Divergence.")
+        break
+    pf.solv_Eqn()
+    for i in range(pf.num_node):
+        a = pf.Jacob[i][2*pf.num_node]
+        pf.Ua[i] += -a
+        a = pf.Jacob[pf.num_node+i][2*pf.num_node]
+        pf.Um[i] *= 1-a
+    iter_ += 1

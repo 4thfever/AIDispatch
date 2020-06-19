@@ -18,9 +18,10 @@ class Device(object):
     def __init__(self, type_, *args):
         self.type_ = type_
         if type_ == 'load':
-            self.i, self.a, self.b = args
+            # p+num代表电气参数
+            self.i, self.p1, self.p2 = args
         else:
-            self.i, self.j, self.a, self.b, self.c = args
+            self.i, self.j, self.p1, self.p2, self.p3 = args
 
 class PowerFlow():
     def __init__(self):
@@ -34,7 +35,7 @@ class PowerFlow():
         self.loss = []
         self.df_branch = pd.DataFrame(columns=['i', 'j', 'Pij', 'Qij', 'Pji', 'Qji', 'dP', 'dQ'])
         self.df_node = pd.DataFrame(columns=['Um', 'Ua', 'PG', 'QG', 'PL', 'QL'])
-        self.df_iter = pd.Series(name='Error_iter', dtype=float)
+        self.df_iter = pd.Series(name='iter_error', dtype=float)
 
     def read_data(self):
         """
@@ -70,13 +71,13 @@ class PowerFlow():
         for lineNum in range(1, self.num_line+1):
             i = self.line[lineNum].i
             j = self.line[lineNum].j
-            r = self.line[lineNum].a
-            x = self.line[lineNum].b
+            r = self.line[lineNum].p1
+            x = self.line[lineNum].p2
             comp = 1/complex(r, x)
             if i==j:
                 self.Y[i][i] += comp
             else:
-                c = self.line[lineNum].c
+                c = self.line[lineNum].p3
                 self.Y[i][j] -= comp
                 self.Y[j][i] = self.Y[i][j]
                 self.Y[i][i] += (comp + complex(0, c))
@@ -84,9 +85,9 @@ class PowerFlow():
         for tranNum in range(1, self.num_tran+1):
             i = self.tran[tranNum].i
             j = self.tran[tranNum].j
-            r = self.tran[tranNum].a
-            x = self.tran[tranNum].b
-            c = self.tran[tranNum].c
+            r = self.tran[tranNum].p1
+            x = self.tran[tranNum].p2
+            c = self.tran[tranNum].p3
             comp = 1/complex(r, x)
             self.Y[i][i] += comp
             self.Y[i][j] -= comp/c
@@ -101,7 +102,7 @@ class PowerFlow():
         self.Ua = np.zeros(self.num_node+1)
         for i in range(1, self.num_gene+1):
             if self.gene[i].j <= 0:
-                self.Um[self.gene[i].i] = self.gene[i].c
+                self.Um[self.gene[i].i] = self.gene[i].p3
 
     def form_Jacobian(self):
         """
@@ -149,14 +150,14 @@ class PowerFlow():
             self.Q[i] = vi * (dq-vi*b)
         for i in range(1, self.num_load+1):
             kk = self.load[i].i
-            lp = self.load[i].a
-            lq = self.load[i].b
+            lp = self.load[i].p1
+            lq = self.load[i].p2
             self.Jacob[kk][nu] += -lp
             self.Jacob[kk+self.num_node][nu] += -lq
         for i in range(1, self.num_gene+1):
             kk = self.gene[i].i
-            gp = self.gene[i].a
-            gq = self.gene[i].b
+            gp = self.gene[i].p1
+            gq = self.gene[i].p2
             self.Jacob[kk][nu] += gp
             self.Jacob[kk+self.num_node][nu] += gq
         for k in range(1, self.num_gene+1):
@@ -196,26 +197,26 @@ class PowerFlow():
                     for k in range(1, self.num_load+1):
                         ii = self.load[k].i
                         if i == ii:
-                            c1 = self.load[k].a
-                            c2 = self.load[k].b
+                            c1 = self.load[k].p1
+                            c2 = self.load[k].p2
                             b1 += c1
                             b2 += c2
                     break
                 if i == ii and kk == -1:            # PV nodes
-                    b1 = self.gene[j].a
+                    b1 = self.gene[j].p1
                     b2 = self.Q[ii]
                     for k in range(1, self.num_load+1):
                         ii = self.load[k].i
                         if i == ii:
-                            c1 = self.load[k].a
-                            c2 = self.load[k].b
+                            c1 = self.load[k].p1
+                            c2 = self.load[k].p2
                             b2 += c2
                     break 
             for j in range(1, self.num_load+1):
                 ii = self.load[j].i
                 if i == ii:
-                    c1 = self.load[j].a
-                    c2 = self.load[j].b
+                    c1 = self.load[j].p1
+                    c2 = self.load[j].p2
                     break
             self.df_node.loc[i] = [self.Um[i], self.Ua[i]*180.0/pi, b1, b2, c1, c2]
         print(self.df_node)
@@ -231,8 +232,8 @@ class PowerFlow():
                 continue
             i = p.i
             j = p.j
-            r = p.a
-            x = p.b
+            r = p.p1
+            x = p.p2
             b = r*r + x*x
             if i == j:
                 vi = self.Um[i]
@@ -248,7 +249,7 @@ class PowerFlow():
             else:
                 r = r/b
                 x = -x/b
-                b = p.c
+                b = p.p3
                 dij = self.Ua[i] - self.Ua[j]
                 vi = self.Um[i]
                 vj = self.Um[j]
@@ -271,9 +272,9 @@ class PowerFlow():
                 continue
             i = p.i
             j = p.j
-            r = p.a
-            x = p.b
-            t = p.c
+            r = p.p1
+            x = p.p2
+            t = p.p3
             b = t*(r*r+x*x)
             r /= b
             x /= -b

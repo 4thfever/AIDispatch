@@ -23,6 +23,12 @@ class Element(object):
         else:
             self.i, self.j, self.p1, self.p2, self.p3 = args
 
+    def topo(self):
+        if self.type_ == 'load':
+            return [self.type_, self.i, None]
+        else:
+            return [self.type_, self.i, self.j]
+
 class PowerFlow():
     def __init__(self):
         self.max_iter = 30       
@@ -35,7 +41,7 @@ class PowerFlow():
         self.loss = []
         self.df_branch = pd.DataFrame(columns=['i', 'j', 'Pij', 'Qij', 'Pji', 'Qji', 'dP', 'dQ'])
         self.df_node = pd.DataFrame(columns=['Um', 'Ua', 'PG', 'QG', 'PL', 'QL'])
-        self.df_iter = pd.Series(name='iter_error', dtype=float)
+        self.df_iter = pd.DataFrame(columns=['iter_error'], dtype=float)
         
         self.read_data()
         self.Jacob = np.zeros((2*self.num_node+1, 2*self.num_node+2))
@@ -174,8 +180,7 @@ class PowerFlow():
         """
         output the power flow of nodes
         """
-        print("\n\n\t\t* - * - * - Result of Power Flow Calculation * - * - * -")
-        print("\n\t\t\t\t-------power flow of nodes-------")
+
         for i in range(1, self.num_node+1):
             b1,b2,c1,c2 = 0.0, 0.0, 0.0, 0.0
             for ele in self.list_elements:
@@ -207,13 +212,11 @@ class PowerFlow():
                     c2 = ele.p2
                     break
             self.df_node.loc[i] = [self.Um[i], self.Ua[i]*180.0/pi, b1, b2, c1, c2]
-        print(self.df_node)
 
     def branch_flow(self):
         """
         output the power flow of branches
         """
-        print("\n\n\t\t\t\t-------power flow of branches-------")
         ph, qh = 0.0, 0.0
         for p in self.list_elements:
             if p.type_ == 'line':
@@ -288,9 +291,7 @@ class PowerFlow():
                 # 这里是shape[0]+1
                 self.df_branch.loc[self.df_branch.shape[0]+1] = [i, j, pij, qij, pji, qji, dpb, dqb]
         self.df_branch[['i','j']] = self.df_branch[['i','j']].astype(np.int32)
-        print(self.df_branch)
-        print("\n\n  The total loss of the system: - Active power:%8.5f\tReactive power:%8.5f" %(ph, qh))
-        self.loss = [ph, qh]
+        self.loss = [round(ele, 4) for ele in [ph, qh]]
 
     def solv_Eqn(self):
         """
@@ -318,36 +319,51 @@ class PowerFlow():
             for j in range(i1, n2+1):
                 Jacob[i, nu] = Jacob[i, nu] - Jacob[i, j]*Jacob[j, nu]
 
+    def run(self):
+        self.admt_matrix()
+        self.Um_and_Ua()
+
+        iter_ = 0  
+        while True:
+            self.form_Jacobian()
+            error = 0.0
+            for i in range(1, 2*self.num_node+1):
+                errror_now = fabs(self.Jacob[i, 2*self.num_node+1])
+                if errror_now > error:
+                    error = errror_now
+            self.df_iter.loc[iter_+1] = error
+            if error < self.error_max:
+                self.node_flow()
+                self.branch_flow()
+                break
+            if iter_ > self.max_iter or error > self.max_error:
+                print("\n\n\t\tThe power flow is Divergence.")
+                break
+            self.solv_Eqn()
+            for i in range(1, self.num_node+1):
+                a = self.Jacob[i, 2*self.num_node+1]
+                self.Ua[i] += -a
+                a = self.Jacob[self.num_node+i, 2*self.num_node+1]
+                self.Um[i] *= 1-a
+            iter_ += 1
+
+    def print_info(self):
+        print("\n\t\t\t\t-------power flow iterations-------")
+        print(self.df_iter)
+        print("\n\n\t\t* - * - * - Result of Power Flow Calculation * - * - * -")
+        print("\n\t\t\t\t-------power flow of nodes-------")
+        print(self.df_node)
+        print("\n\n\t\t\t\t-------power flow of branches-------")
+        print(self.df_branch)
+        print(f"\n\n  The total loss of the system: - Active power:{self.loss[0]}  Reactive power:{self.loss[1]}")
+
+
 def main():
     pf = PowerFlow()
-    pf.admt_matrix()
-    pf.Um_and_Ua()
-
-    iter_ = 0  
-    while True:
-        pf.form_Jacobian()
-        error = 0.0
-        for i in range(1, 2*pf.num_node+1):
-            errror_now = fabs(pf.Jacob[i, 2*pf.num_node+1])
-            if errror_now > error:
-                error = errror_now
-        pf.df_iter.loc[iter_+1] = error
-        if error < pf.error_max:
-            print(pf.df_iter)
-            pf.node_flow()
-            pf.branch_flow()
-            break
-        if iter_ > pf.max_iter or error > pf.max_error:
-            print("\n\n\t\tThe power flow is Divergence.")
-            break
-        pf.solv_Eqn()
-        for i in range(1, pf.num_node+1):
-            a = pf.Jacob[i, 2*pf.num_node+1]
-            pf.Ua[i] += -a
-            a = pf.Jacob[pf.num_node+i, 2*pf.num_node+1]
-            pf.Um[i] *= 1-a
-        iter_ += 1
+    pf.run()
+    pf.print_info()
     return pf
 
-pf = main()
+if __name__ == '__main__':
+    main()
 # print(pf.df_branch, pf.df_node, pf.df_iter, pf.loss)

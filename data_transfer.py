@@ -14,37 +14,34 @@ import numpy as np
 
 # 向前端发送拓扑信息
 def export_topo(pf):
-    # topo = [ele.topo() for ele in pf.list_elements]
-    nodes = []
+    links, nodes = [], []
     for num in range(1, pf.num_node+1):
-        # node_value = pf.df_node.loc[num, ['Um', 'Ua']].values
         node_value = [list(map(
                       lambda x:round(x,3),
                       pf.df_node.loc[num, ['Um', 'Ua']].values
                     ))]
-        print(node_value)
         node = opts.GraphNode(
                     name=f"Node{num}", 
                     symbol_size=20,
                     value=node_value
                     ) 
         nodes.append(node)
-    links = []
 
-    count_load = 1
-    count_tran = 1
-    count_line = 1
+    count_load, count_tran, count_line = 1, 1, 1
     for ele in pf.list_elements:
-        node_name = ""
-        node_value = " "
-        edge_value = " "
+        node_name = None
+        # 默认value为空格，这样子在前端不显示
+        # 如果不赋值，会显示undefined
+        node_value, edge_value = " ", " "
         if ele.type_ == 'load':
             node_name=f"Lode{count_load}"
             node_symbol='diamond'
+            # 用list形式存link信息，因为为tran时需两个link
             sources=[f"Lode{count_load}"]
             targets=[f"Node{ele.i}"]
             count_load += 1
         elif ele.type_ == 'gene':
+            # 标记节点
             if ele.j == -1:
                 value = 'PV节点'
             if ele.j == 0:
@@ -67,7 +64,7 @@ def export_topo(pf):
             sources=[f"Node{ele.i}"] 
             targets=[f"Node{ele.j}"]
             count_line += 1
-        if node_name != "":
+        if isinstance(node_name, str):
             node = opts.GraphNode(
                     name = node_name,
                     value = node_value,

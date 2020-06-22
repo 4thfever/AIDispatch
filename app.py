@@ -28,13 +28,25 @@ def make_graph(pf_data=False):
             nodes, 
             links,
             edge_label=opts.LabelOpts(
-                is_show=True, position="middle", formatter="{c}"
+                    is_show=True, 
+                    position="middle", 
+                    formatter="{c}"
             ), 
             label_opts=opts.LabelOpts(
-                is_show=True, position="middle", formatter="{b}:{c}"
+                    is_show=True, 
+                    position="middle", 
+                    formatter="{c}"
             ), 
-            repulsion=4000)
-        .set_global_opts(title_opts=opts.TitleOpts())
+            repulsion=4000
+        )
+        .set_global_opts(
+            title_opts=opts.TitleOpts(),
+            toolbox_opts=opts.ToolboxOpts(),
+            legend_opts=opts.LegendOpts(
+                is_show=True,
+                legend_icon = 'rect',
+            )
+        )
     )
     return c
 

@@ -15,13 +15,20 @@ import numpy as np
 # 向前端发送拓扑信息
 def export_topo(pf):
     # topo = [ele.topo() for ele in pf.list_elements]
-    nodes = [opts.GraphNode(
-                name=f"Node{num}", 
-                symbol_size=20,
-                value=" "
-                ) 
-                for num in range(1, pf.num_node+1)
-            ]
+    nodes = []
+    for num in range(1, pf.num_node+1):
+        # node_value = pf.df_node.loc[num, ['Um', 'Ua']].values
+        node_value = [list(map(
+                      lambda x:round(x,3),
+                      pf.df_node.loc[num, ['Um', 'Ua']].values
+                    ))]
+        print(node_value)
+        node = opts.GraphNode(
+                    name=f"Node{num}", 
+                    symbol_size=20,
+                    value=node_value
+                    ) 
+        nodes.append(node)
     links = []
 
     count_load = 1

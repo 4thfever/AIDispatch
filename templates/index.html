@@ -14,11 +14,13 @@
                 var chart = echarts.init(document.getElementById('bar'), 'white', {renderer: 'canvas'});
                 $.ajax({
                     type: "GET",
-                    url: "http://127.0.0.1:5000/barChart",
+                    url: "http://127.0.0.1:5000/chart",
                     dataType: 'json',
                     success: function (result) {
                         chart.setOption(result);
+                        console.log(result);
                     }
+
                 });
             }
         )

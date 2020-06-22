@@ -9,7 +9,7 @@ Time:         2020-06-20
 Link:         https://github.com/4thfever
 '''
 from PowerFlow.power_flow import PowerFlow
-from PowerFlow.data_transfer import export_topo, export_pf_res
+from data_transfer import export_topo, export_pf_res
 from flask import Flask, render_template
 from pyecharts import options as opts
 from pyecharts.charts import Graph
@@ -18,15 +18,24 @@ from pyecharts.charts import Graph
 app = Flask(__name__, static_folder="templates")
 
 
-def make_graph():
+def make_graph(pf_data=False):
     pf = PowerFlow()
+    pf.run()
     nodes, links = export_topo(pf)
     c = (
         Graph()
-        .add("", nodes, links, repulsion=4000)
-        .set_global_opts(title_opts=opts.TitleOpts(title="Graph-GraphNode-GraphLink"))
+        .add("", 
+            nodes, 
+            links,
+            edge_label=opts.LabelOpts(
+                is_show=True, position="middle", formatter="{c}"
+            ), 
+            label_opts=opts.LabelOpts(
+                is_show=True, position="middle", formatter="{b}:{c}"
+            ), 
+            repulsion=4000)
+        .set_global_opts(title_opts=opts.TitleOpts())
     )
-
     return c
 
 
@@ -35,11 +44,18 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/barChart")
-def get_bar_chart():
+@app.route("/chart")
+def get_chart():
     c = make_graph()
+    return c.dump_options_with_quotes()
+
+# 通过更新数据的方式，给拓扑形状输入具体的潮流值
+# 这样做是为了之后动态训练的时候能够更新潮流情况
+@app.route("/updateData")
+def update_data():
+    c = make_graph(pf_data=True)
     return c.dump_options_with_quotes()
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)

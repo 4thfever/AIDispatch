@@ -18,7 +18,7 @@
                     dataType: 'json',
                     success: function (result) {
                         chart.setOption(result);
-                        console.log(result);
+                        console.log(result['series'][0]['data']);
                     }
 
                 });

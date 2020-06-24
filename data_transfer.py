@@ -52,7 +52,11 @@ def export_topo(pf):
             targets=[f"Node{ele.i}"]
         elif ele.type_ == 'tran':
             node_name=f"Tran{count_tran}"
-            node_symbol='triangle'
+            # node_symbol='triangle'
+            # node_symbol='http://127.0.0.1:5000/svg/transformer.png'
+            node_symbol='image://svg/transformer.png'
+            # node_symbol='image://svg/test.png'
+            # node_symbol='image://svg/transformer.png1123123'
             sources=[f"Tran{count_tran}"]*2
             targets=[f"Node{ele.i}", f"Node{ele.j}"]
             count_tran += 1

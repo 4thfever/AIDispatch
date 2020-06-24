@@ -10,7 +10,7 @@ Link:         https://github.com/4thfever
 '''
 from PowerFlow.power_flow import PowerFlow
 from data_transfer import export_topo, export_pf_res
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect, url_for
 from pyecharts import options as opts
 from pyecharts.charts import Graph
 
@@ -60,6 +60,10 @@ def index():
 def get_chart():
     c = make_graph()
     return c.dump_options_with_quotes()
+
+@app.route("/svg/<path:path>")
+def return_svg(path):
+    return '<img src=' + url_for('static',filename=path) + '>'
 
 # 通过更新数据的方式，给拓扑形状输入具体的潮流值
 # 这样做是为了之后动态训练的时候能够更新潮流情况

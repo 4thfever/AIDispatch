@@ -41,11 +41,7 @@ def make_graph(pf_data=False):
         )
         .set_global_opts(
             title_opts=opts.TitleOpts(),
-            toolbox_opts=opts.ToolboxOpts(),
-            legend_opts=opts.LegendOpts(
-                is_show=True,
-                legend_icon = 'rect',
-            )
+            # toolbox_opts=opts.ToolboxOpts(),
         )
     )
     return c

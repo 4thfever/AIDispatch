@@ -24,7 +24,8 @@ def export_topo(pf):
         node = opts.GraphNode(
                     name=f"Node{num}", 
                     symbol_size=20,
-                    value=node_value
+                    value=node_value,
+                    symbol='image://svg/node.png'
                     ) 
         nodes.append(node)
 
@@ -36,7 +37,7 @@ def export_topo(pf):
         node_value, edge_value = " ", " "
         if ele.type_ == 'load':
             node_name=f"Lode{count_load}"
-            node_symbol='diamond'
+            node_symbol='image://svg/load.png'
             # 用list形式存link信息，因为为tran时需两个link
             sources=[f"Lode{count_load}"]
             targets=[f"Node{ele.i}"]
@@ -48,12 +49,12 @@ def export_topo(pf):
             if ele.j == 0:
                 value = '平衡节点'
             node_name=f"Gene{ele.j}"
-            node_symbol='rect'
+            node_symbol='image://svg/generator.png'
             sources=[f"Gene{ele.j}"]
             targets=[f"Node{ele.i}"]
         elif ele.type_ == 'tran':
             node_name=f"Tran{count_tran}"
-            node_symbol='triangle'
+            node_symbol='image://svg/transformer.png'
             sources=[f"Tran{count_tran}"]*2
             targets=[f"Node{ele.i}", f"Node{ele.j}"]
             count_tran += 1

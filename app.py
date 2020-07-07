@@ -10,7 +10,7 @@ Link:         https://github.com/4thfever
 '''
 from PowerFlow.power_flow import PowerFlow
 from data_transfer import export_topo, export_pf_res
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, send_file
 from pyecharts import options as opts
 from pyecharts.charts import Graph
 
@@ -51,6 +51,10 @@ def make_graph(pf_data=False):
 def index():
     return render_template("index.html")
 
+@app.route("/svg/<path:path>")
+def return_svg(path):
+    # return '<img src=' + url_for('static',filename=path) + '>'
+    return send_file('./templates/'+path, mimetype='image/svg')
 
 @app.route("/chart")
 def get_chart():
